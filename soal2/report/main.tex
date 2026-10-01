@@ -5,6 +5,8 @@
 \usepackage{lmodern}
 \usepackage{geometry}
 \usepackage{amsmath,amssymb,booktabs,array,graphicx,float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{microtype}
 \usepackage[hidelinks]{hyperref}
 \geometry{margin=2.25cm}
@@ -61,6 +63,37 @@ A^\mathsf{T}Ax=A^\mathsf{T}b.
 \end{equation}
 Matriks $6\times6$ dibentuk dari data latih, lalu sistemnya diselesaikan dengan eliminasi Gauss dan \emph{partial pivoting} serta substitusi balik yang diimplementasikan sendiri. Dalam aritmetika eksak, $\kappa_2(A^\mathsf{T}A)=\kappa_2(A)^2$ bila $A$ ber-rank penuh. Untuk data ini, $\kappa_2(A)=192.6054$ dan $\kappa_2(A^\mathsf{T}A)=37096.8440$. Membentuk persamaan normal karena itu berpotensi memperbesar pengaruh pembulatan dan kehilangan digit akurasi, walaupun hasil pada data ini masih sangat dekat dengan QR.
 
+\begin{algorithm}[H]
+\caption{Penyelesaian Persamaan Normal via Eliminasi Gauss dengan \emph{Partial Pivoting}}
+\begin{algorithmic}[1]
+\Require $A\in\R^{m\times n}$, $b\in\R^m$
+\Ensure $x\in\R^n$ solusi least squares
+\State $M \gets A^\mathsf{T}A$ \Comment{Matriks normal $n\times n$}
+\State $d \gets A^\mathsf{T}b$ \Comment{Ruas kanan $n\times 1$}
+\Statex \textbf{--- Eliminasi maju dengan \emph{partial pivoting} ---}
+\For{$k = 1$ \textbf{to} $n$}
+    \State $p \gets \arg\max_{k \le i \le n} |M_{ik}|$ \Comment{Cari pivot terbesar}
+    \If{$M_{pk} = 0$}
+        \State \textbf{error} ``Matriks singular''
+    \EndIf
+    \State Tukar baris $M_k \leftrightarrow M_p$ dan $d_k \leftrightarrow d_p$
+    \For{$i = k+1$ \textbf{to} $n$}
+        \State $f \gets M_{ik} / M_{kk}$
+        \For{$j = k+1$ \textbf{to} $n$}
+            \State $M_{ij} \gets M_{ij} - f \cdot M_{kj}$
+        \EndFor
+        \State $d_i \gets d_i - f \cdot d_k$
+        \State $M_{ik} \gets 0$
+    \EndFor
+\EndFor
+\Statex \textbf{--- Substitusi balik ---}
+\For{$i = n$ \textbf{downto} $1$}
+    \State $x_i \gets \dfrac{d_i - \sum_{j=i+1}^{n} M_{ij}\, x_j}{M_{ii}}$
+\EndFor
+\State \Return $x$
+\end{algorithmic}
+\end{algorithm}
+
 \section{QR dengan rotasi Givens}
 Untuk menghilangkan entri $a_{ji}$ di bawah diagonal, ambil $u=a_{ii}$, $v=a_{ji}$, $\rho=\sqrt{u^2+v^2}$, $c=u/\rho$, dan $s=v/\rho$. Matriks $G$ adalah identitas kecuali blok pada baris dan kolom $i,j$:
 \begin{equation}
@@ -68,6 +101,36 @@ G_{\{i,j\},\{i,j\}}=\begin{pmatrix}c&s\\-s&c\end{pmatrix},\qquad
 G\begin{pmatrix}u\\v\end{pmatrix}=\begin{pmatrix}\rho\\0\end{pmatrix}.
 \end{equation}
 Penerapan seluruh rotasi memberi $R=G_k\cdots G_1A$ dan $Q_{\rm QR}=(G_k\cdots G_1)^\mathsf{T}$, sehingga $A=Q_{\rm QR}R$. Jika variabel program \texttt{Q} menyimpan $G_k\cdots G_1$, ruas kanan yang benar adalah \texttt{d = Q @ b}; lalu selesaikan enam baris pertama $Rx=d$ dengan substitusi balik. Ini adalah orientasi yang dipakai pada perhitungan.
+
+\begin{algorithm}[H]
+\caption{Penyelesaian Least Squares via QR Rotasi Givens}
+\begin{algorithmic}[1]
+\Require $A\in\R^{m\times n}$ ($m > n$), $b\in\R^m$
+\Ensure $x\in\R^n$ solusi least squares
+\State $R \gets A$ (salinan), \; $d \gets b$ (salinan)
+\Statex \textbf{--- Triangularisasi $R$ dengan rotasi Givens ---}
+\For{$i = 1$ \textbf{to} $n$} \Comment{Iterasi tiap kolom}
+    \For{$j = i+1$ \textbf{to} $m$} \Comment{Eliminasi elemen subdiagonal}
+        \If{$R_{ji} = 0$}
+            \State \textbf{continue} \Comment{Sudah nol, lewati}
+        \EndIf
+        \State $\rho \gets \sqrt{R_{ii}^2 + R_{ji}^2}$
+        \State $c \gets R_{ii} / \rho$, \;\; $s \gets R_{ji} / \rho$
+        \Statex \hspace{2.5em} \textit{--- Terapkan rotasi ke baris $i$ dan $j$ ---}
+        \For{$k = i$ \textbf{to} $n$} \Comment{Perbarui kolom $R$}
+            \State $(R_{ik},\, R_{jk}) \gets (c \cdot R_{ik} + s \cdot R_{jk},\;\; {-s} \cdot R_{ik} + c \cdot R_{jk})$
+        \EndFor
+        \State $(d_i,\, d_j) \gets (c \cdot d_i + s \cdot d_j,\;\; {-s} \cdot d_i + c \cdot d_j)$ \Comment{Perbarui ruas kanan}
+        \State $R_{ji} \gets 0$
+    \EndFor
+\EndFor
+\Statex \textbf{--- Substitusi balik pada $R_{1:n,\,1:n}\, x = d_{1:n}$ ---}
+\For{$i = n$ \textbf{downto} $1$}
+    \State $x_i \gets \dfrac{d_i - \sum_{k=i+1}^{n} R_{ik}\, x_k}{R_{ii}}$
+\EndFor
+\State \Return $x$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection*{Verifikasi rotasi pertama}
 Dua baris pertama matriks desain adalah
