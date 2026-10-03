@@ -1,0 +1,7 @@
+N,dimensi_ok,hingga,nonnegatif,galat_baris_maks,baris_ok,irreducible,aperiodik,min_diag,min_taknol_luar_diag,nnz_per_baris,offset_taknol,valid
+16,True,True,True,1.1102230246251565e-16,True,True,True,0.835,0.014424249920742751,2-4,"[-1, 0, 1, 2]",True
+32,True,True,True,2.220446049250313e-16,True,True,True,0.8350000000000001,0.014672990580138844,2-4,"[-1, 0, 1, 2]",True
+64,True,True,True,2.220446049250313e-16,True,True,True,0.835,0.014832845306927364,2-4,"[-1, 0, 1, 2]",True
+128,True,True,True,2.220446049250313e-16,True,True,True,0.835,0.014916201832234048,2-4,"[-1, 0, 1, 2]",True
+256,True,True,True,2.220446049250313e-16,True,True,True,0.835,1.495812742890058e-08,2-4,"[-1, 0, 1, 2]",True
+512,True,True,True,2.220446049250313e-16,True,True,True,0.8350000000000001,0.014979080258046954,2-4,"[-1, 0, 1, 2]",True

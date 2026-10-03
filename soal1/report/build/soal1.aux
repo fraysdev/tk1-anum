@@ -1,0 +1,73 @@
+\relax 
+\providecommand \babel@aux [2]{\global \let \babel@toc \@gobbletwo }
+\@nameuse{bbl@beforestart}
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{heath}
+\citation{norris}
+\citation{cormen}
+\citation{norris}
+\babel@aux{indonesian}{}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Data dan Validasi}{1}{section.2}\protected@file@percent }
+\newlabel{sec:data}{{2}{1}{Data dan Validasi}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Deskripsi data}{1}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Prosedur validasi}{1}{subsection.2.2}\protected@file@percent }
+\citation{stewart}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Hasil validasi}{2}{subsection.2.3}\protected@file@percent }
+\newlabel{subsec:hasilvalidasi}{{2.3}{2}{Hasil validasi}{subsection.2.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2.1}{\ignorespaces Hasil validasi matriks transisi. Untuk semua $N$, dimensi sesuai, seluruh elemen hingga dan nonnegatif, rantai irreducible dan aperiodik, dan setiap baris memuat 2--4 elemen tak-nol.}}{2}{table.2.1}\protected@file@percent }
+\newlabel{tab:validasi}{{2.1}{2}{Hasil validasi matriks transisi. Untuk semua $N$, dimensi sesuai, seluruh elemen hingga dan nonnegatif, rantai irreducible dan aperiodik, dan setiap baris memuat 2--4 elemen tak-nol}{table.2.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Formulasi dan Penanganan Singularitas}{2}{section.3}\protected@file@percent }
+\newlabel{sec:formulasi}{{3}{2}{Formulasi dan Penanganan Singularitas}{section.3}{}}
+\newlabel{eq:steady}{{3.1}{2}{Formulasi dan Penanganan Singularitas}{equation.3.1}{}}
+\citation{stewart}
+\citation{golub}
+\citation{lapack}
+\newlabel{eq:B}{{3.2}{3}{Formulasi dan Penanganan Singularitas}{equation.3.2}{}}
+\newlabel{eq:normal}{{3.3}{3}{Formulasi dan Penanganan Singularitas}{equation.3.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Identifikasi Struktur Banded}{3}{section.4}\protected@file@percent }
+\newlabel{sec:band}{{4}{3}{Identifikasi Struktur Banded}{section.4}{}}
+\newlabel{eq:pq}{{4.1}{3}{Identifikasi Struktur Banded}{equation.4.1}{}}
+\newlabel{eq:bandB}{{4.2}{3}{Identifikasi Struktur Banded}{equation.4.2}{}}
+\citation{heath}
+\@writefile{lot}{\contentsline {table}{\numberline {4.1}{\ignorespaces Kebutuhan memori penyimpanan $B$ dalam byte (\texttt  {float64}, 8 byte per elemen): dense $N^2$, pita $(p+q+1)N$, dan pita dengan ruang fill-in $(2p+q+1)N$. Rasio = dense dibagi pita dengan fill-in.}}{4}{table.4.1}\protected@file@percent }
+\newlabel{tab:storage}{{4.1}{4}{Kebutuhan memori penyimpanan $B$ dalam byte (\texttt {float64}, 8 byte per elemen): dense $N^2$, pita $(p+q+1)N$, dan pita dengan ruang fill-in $(2p+q+1)N$. Rasio = dense dibagi pita dengan fill-in}{table.4.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Metode Penyelesaian}{4}{section.5}\protected@file@percent }
+\newlabel{sec:metode}{{5}{4}{Metode Penyelesaian}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}LU dense dengan partial pivoting}{4}{subsection.5.1}\protected@file@percent }
+\citation{golub}
+\@writefile{loa}{\contentsline {algorithm}{\numberline {5.1}{\ignorespaces LU dense dengan \emph  {partial pivoting} dan penyelesaian $Bz=b$}}{5}{algorithm.5.1}\protected@file@percent }
+\newlabel{alg:dense}{{5.1}{5}{LU dense dengan partial pivoting}{algorithm.5.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Solver banded bergaya Thomas}{5}{subsection.5.2}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {5.2}{\ignorespaces Faktorisasi dan penyelesaian banded dengan \emph  {partial pivoting}. Notasi $B_{ij}$ berarti elemen yang disimpan di $AB_{p+q+1+i-j,\,j}$.}}{6}{algorithm.5.2}\protected@file@percent }
+\newlabel{alg:band}{{5.2}{6}{Solver banded bergaya Thomas}{algorithm.5.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Uji kebenaran}{6}{subsection.5.3}\protected@file@percent }
+\citation{golub}
+\@writefile{lot}{\contentsline {table}{\numberline {5.1}{\ignorespaces Uji kebenaran pada matriks kecil.}}{7}{table.5.1}\protected@file@percent }
+\newlabel{tab:uji}{{5.1}{7}{Uji kebenaran pada matriks kecil}{table.5.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Eksperimen Kinerja dan Analisis Kompleksitas}{7}{section.6}\protected@file@percent }
+\newlabel{sec:eksperimen}{{6}{7}{Eksperimen Kinerja dan Analisis Kompleksitas}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Rancangan eksperimen}{7}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Hasil}{8}{subsection.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6.1}{\ignorespaces Waktu (ms, minimum dari 15 ulangan) dan memori (KiB) untuk data soal.}}{8}{table.6.1}\protected@file@percent }
+\newlabel{tab:bench}{{6.1}{8}{Waktu (ms, minimum dari 15 ulangan) dan memori (KiB) untuk data soal}{table.6.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.1}{\ignorespaces Waktu solver terhadap $N$ (skala log--log). Marker kosong dan garis putus-putus adalah rantai sintetis $N=1024$ dan $2048$; garis abu-abu adalah garis bantu $\propto N^3$ dan $\propto N$.}}{8}{figure.6.1}\protected@file@percent }
+\newlabel{fig:waktu}{{6.1}{8}{Waktu solver terhadap $N$ (skala log--log). Marker kosong dan garis putus-putus adalah rantai sintetis $N=1024$ dan $2048$; garis abu-abu adalah garis bantu $\propto N^3$ dan $\propto N$}{figure.6.1}{}}
+\citation{heath}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.2}{\ignorespaces Memori terhadap $N$. Garis tebal menunjukkan total \texttt  {.nbytes} array yang disimpan solver; garis bertitik dengan marker silang menunjukkan puncak \texttt  {tracemalloc}.}}{9}{figure.6.2}\protected@file@percent }
+\newlabel{fig:memori}{{6.2}{9}{Memori terhadap $N$. Garis tebal menunjukkan total \texttt {.nbytes} array yang disimpan solver; garis bertitik dengan marker silang menunjukkan puncak \texttt {tracemalloc}}{figure.6.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Analisis kompleksitas}{9}{subsection.6.3}\protected@file@percent }
+\newlabel{eq:flopband}{{6.1}{9}{Analisis kompleksitas}{equation.6.1}{}}
+\bibcite{norris}{1}
+\bibcite{cormen}{2}
+\bibcite{heath}{3}
+\bibcite{stewart}{4}
+\bibcite{golub}{5}
+\bibcite{lapack}{6}
+\@writefile{lot}{\contentsline {table}{\numberline {6.2}{\ignorespaces Kemiringan garis log--log (pangkat empiris $N$) terhadap nilai teoretis. Kolom terakhir memakai $N=256$, $512$ dan dua titik sintetis.}}{10}{table.6.2}\protected@file@percent }
+\newlabel{tab:slope}{{6.2}{10}{Kemiringan garis log--log (pangkat empiris $N$) terhadap nilai teoretis. Kolom terakhir memakai $N=256$, $512$ dan dua titik sintetis}{table.6.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Kode Program}{10}{appendix.A}\protected@file@percent }
+\newlabel{lamp:kode}{{A}{10}{Kode Program}{appendix.A}{}}
+\@writefile{lol}{\contentsline {lstlisting}{generated/kode\textunderscore lampiran.py}{11}{lstlisting.-1}\protected@file@percent }
+\gdef \@abspage@last{13}

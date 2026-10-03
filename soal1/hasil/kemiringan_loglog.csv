@@ -1,0 +1,9 @@
+,data N=16..512,data N=128..512,N=256..2048 (+sintetis)
+waktu dense (teori 3),1.71,2.56,3.18
+waktu band (teori 1),1.01,1.02,1.02
+flop faktorisasi dense (teori 3),3.0,3.0,3.0
+flop faktorisasi banded (teori 1),1.0,1.0,1.0
+nbytes dense (teori 2),1.98,1.99,2.0
+nbytes band (teori 1),1.0,1.0,1.0
+peak dense (teori 2),1.74,1.73,1.95
+peak band (teori 1),0.59,0.81,0.92
