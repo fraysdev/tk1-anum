@@ -320,7 +320,7 @@ diagonal~\cite{golub}. Jalur pertukaran baris karena itu hanya teruji lewat uji~
 
 Tanpa pertukaran baris, kedua solver melakukan operasi titik-mengambang yang sama pada angka yang sama; solver dense
 hanya menambah operasi terhadap elemen nol. Hasilnya, $\pi$ dari solver banded identik dengan $\pi$ dari solver dense,
-dengan selisih maksimum tepat $0$ untuk semua $N$. Sebagai pembanding independen, selisih terhadap
+dengan selisih maksimum $0$ pada mesin kami, karena tanpa pertukaran baris kedua solver melakukan operasi yang sama. Sebagai pembanding independen, selisih terhadap
 \texttt{np.linalg.solve} paling besar $2.6\times10^{-16}$ untuk $N\ne256$ dan $6.6\times10^{-13}$ untuk $N=256$
 (\texttt{hasil/verifikasi\_*\_numpy.csv}). Selisih yang lebih besar pada $N=256$ sejalan dengan struktur yang hampir
 terpecah pada Subbagian~\ref{subsec:hasilvalidasi} dan dianalisis pada Bagian~7.
