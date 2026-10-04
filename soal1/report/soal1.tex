@@ -430,12 +430,441 @@ atas: solver banded linear dalam waktu dan memori, sedangkan solver dense kuadra
 dalam waktu.
 
 %======================================================================
-% Bagian 7 (Analisis Kondisi dan Galat), 8, dan 9 ditulis kemudian.
+\section{Analisis Kondisi dan Galat}\label{sec:kondisi}
+
+\subsection{Ukuran yang dihitung}
+Bagian ini menimbang tiga hal: kondisi $B$ sebagai sifat masalah, galat residual sebagai sifat algoritma, dan galat
+maju sebagai akibat dari keduanya. Kondisi $B$ diukur dengan bilangan kondisi norma-1
+\begin{equation}\label{eq:kappa}
+\kappa_1(B)=\lVert B\rVert_1\,\lVert B^{-1}\rVert_1,\qquad
+\lVert M\rVert_1=\max_{j}\sum_{i}\lvert M_{ij}\rvert,
+\end{equation}
+yang dipakai untuk seluruh $N$ agar nilainya dapat dibandingkan antarukuran. Norma-1 dipilih karena nilainya
+diperoleh eksak dari jumlah mutlak kolom, sedangkan norma-2 memerlukan nilai singular yang tidak dapat dihitung tanpa
+pustaka faktorisasi~\cite{heath}. Matriks $B^{-1}$ dibentuk dengan menyelesaikan $BX=I$ memakai faktor $PB=LU$ dari
+solver dense, yaitu substitusi maju dan mundur untuk semua kolom sekaligus (Kode~\ref{alg:kappa}; fungsi
+\texttt{invers\_dari\_LU} dan \texttt{bilangan\_kondisi\_1}). Biayanya $O(N^3)$, yang masih dapat diterima untuk
+$N\le2048$. Untuk $N$ yang jauh lebih besar, $\kappa_1$ cukup ditaksir dengan estimator Hager--Higham, yang hanya
+memerlukan penyelesaian sistem dengan $B$ dan $B^\T$ memakai faktor yang sudah ada~\cite{higham}. Fungsi ini diuji
+pada matriks $3\times3$ dari Tabel~\ref{tab:uji} (uji~2): invers sama dengan hitungan tangan dan
+$\kappa_1=14\times5.5=77$.
+
+\begin{algorithm}[H]
+\caption{Bilangan kondisi $\kappa_1(B)$ dari faktor $PB=LU$}
+\label{alg:kappa}
+\begin{algorithmic}[1]
+\Require $B\in\R^{N\times N}$, faktor $L,U$ dan vektor permutasi $\mathit{perm}$ dari Kode~\ref{alg:dense}
+\Ensure $\kappa_1(B)$
+\State $Y\gets I_{\mathit{perm},:}$ \Comment{$Y=PI$}
+\For{$i=2$ \textbf{to} $N$} \Comment{substitusi maju untuk semua kolom: $LY=PI$}
+  \State $Y_{i,:}\gets Y_{i,:}-\sum_{j<i}L_{ij}\,Y_{j,:}$
+\EndFor
+\For{$i=N$ \textbf{downto} $1$} \Comment{substitusi mundur: $UX=Y$, sehingga $X=B^{-1}$}
+  \State $X_{i,:}\gets\bigl(Y_{i,:}-\sum_{j>i}U_{ij}\,X_{j,:}\bigr)/U_{ii}$
+\EndFor
+\State \Return $\bigl(\max_j\sum_i\lvert B_{ij}\rvert\bigr)\bigl(\max_j\sum_i\lvert X_{ij}\rvert\bigr)$
+\end{algorithmic}
+\end{algorithm}
+
+Selain $r=\lVert T^\T\hat\pi-\hat\pi\rVert_2$ dan $e_{\mathrm{norm}}=\lvert\mathbf1^\T\hat\pi-1\rvert$ yang diminta
+soal, kami menghitung dua ukuran tambahan. Yang pertama adalah galat mundur relatif
+\begin{equation}\label{eq:eta}
+\eta=\frac{\lVert b-B\hat z\rVert_1}{\lVert B\rVert_1\,\lVert\hat z\rVert_1},
+\end{equation}
+yaitu seberapa kecil gangguan relatif pada $B$ yang membuat $\hat z$ menjadi solusi eksak~\cite{higham}. Yang kedua
+adalah galat maju $\delta=\lVert\hat\pi-\pi^\ast\rVert_1$ terhadap solusi acuan $\pi^\ast$. Karena
+$\lVert\pi^\ast\rVert_1=1$, $\delta$ adalah galat relatif norma-1. Acuan harus lebih akurat daripada presisi ganda.
+Membandingkan kedua solver satu sama lain tidak membantu karena hasilnya identik (Subbagian~\ref{subsec:analisiskondisi}),
+dan \texttt{np.linalg.solve} juga berasal dari eliminasi dengan pembulatan. Karena itu $\pi^\ast$ dihitung dengan
+perbaikan iteratif dengan residual eksak (Kode~\ref{alg:acuan}). $\hat z$ diubah menjadi bilangan rasional, residual
+$b-B\zeta$ dihitung eksak dengan modul \texttt{fractions} Python (hanya di dalam pita), koreksi dihitung dengan faktor
+$LU$ yang sama, dan langkah ini diulang empat kali. Setiap iterasi memperkecil galat kira-kira dengan faktor
+$\kappa_1\varepsilon$~\cite{higham}. Pada kasus terburuk ($\kappa_1\varepsilon\approx1.9\times10^{-7}$) galat acuan
+setelah empat iterasi karena itu jauh di bawah $\delta$ yang diukur.
+
+\begin{algorithm}[H]
+\caption{Solusi acuan $\pi^\ast$ dan galat maju $\delta$ dengan perbaikan iteratif dan residual eksak}
+\label{alg:acuan}
+\begin{algorithmic}[1]
+\Require $B$ (pita $p,q$), $b$, faktor $LU$ dan $\mathit{perm}$, solusi $\hat z$ dan $\hat\pi$, jumlah iterasi $K=4$
+\Ensure $\delta=\lVert\hat\pi-\pi^\ast\rVert_1$
+\State $\zeta\gets\hat z$ sebagai bilangan rasional (tepat)
+\For{$k=1$ \textbf{to} $K$}
+  \State $\rho\gets b-B\zeta$ \Comment{aritmetika rasional, hanya elemen di dalam pita}
+  \State $d\gets$ solusi $LUd=P\rho$ dengan $\rho$ dibulatkan ke presisi ganda \Comment{substitusi Kode~\ref{alg:dense}}
+  \State $\zeta\gets\zeta+d$ \Comment{penjumlahan eksak}
+\EndFor
+\State $\pi^\ast\gets\zeta/\mathbf1^\T\zeta$ \Comment{eksak}
+\State \Return $\sum_i\lvert\hat\pi_i-\pi^\ast_i\rvert$ \Comment{dihitung eksak, lalu dibulatkan}
+\end{algorithmic}
+\end{algorithm}
+
+Ketiga ukuran dihubungkan oleh pertidaksamaan sederhana. Karena $\hat z-z=B^{-1}(B\hat z-b)$,
+\begin{equation}\label{eq:galatmaju}
+\frac{\lVert\hat z-z\rVert_1}{\lVert\hat z\rVert_1}
+\le\lVert B^{-1}\rVert_1\frac{\lVert b-B\hat z\rVert_1}{\lVert\hat z\rVert_1}
+=\kappa_1(B)\,\eta .
+\end{equation}
+Galat maju dengan demikian dibatasi oleh hasil kali sifat masalah ($\kappa_1$) dan sifat algoritma ($\eta$). Eliminasi
+Gauss yang stabil mundur memberi $\eta$ sekitar $\varepsilon=2^{-53}$~\cite{higham}, sehingga $\kappa_1\varepsilon$
+lazim dipakai sebagai tolok ukur galat maju. Kami melaporkan keduanya. Residual pada~\eqref{eq:eta} dihitung dalam presisi
+ganda, jadi nilainya hanya dapat dibaca sampai orde $\varepsilon$ dan~\eqref{eq:galatmaju} dipakai sebagai petunjuk orde,
+bukan batas yang pasti.
+
+\subsection{Hubungan $\kappa_1(B)$ dengan waktu pencapaian halte~1}
+Untuk matriks $B$ ini, $\kappa_1(B)$ memiliki tafsiran fisik yang eksak. Misalkan $m_j$ adalah rata-rata banyaknya
+interval waktu yang diperlukan penumpang dari halte $j$ untuk pertama kali tiba di halte~1 (\emph{hitting time}).
+
+\medskip\noindent\textbf{Proposisi.}
+$\kappa_1(B)=\lVert B\rVert_1\,\max\bigl\{1/\pi_1,\ \max_{j\ge2}m_j\bigr\}$.
+
+\smallskip\noindent\emph{Bukti.}
+Semua elemen $B^{-1}$ nonnegatif (ditunjukkan di bawah), sehingga $\lVert B^{-1}\rVert_1$ adalah jumlah kolom terbesar.
+Kolom pertama adalah $B^{-1}e_1=z=\pi/\pi_1$ (Bagian~\ref{sec:formulasi}), yang berjumlah $1/\pi_1$. Untuk $j\ge2$, kolom
+$x=B^{-1}e_j$ memenuhi $x_1=0$ (baris pertama $B$), dan komponen sisanya memenuhi
+$(I-\widetilde T^\T)x_{2:N}=e_j$ dengan $\widetilde T$ seperti pada Bagian~\ref{sec:formulasi}. Karena $\widetilde T^k\to0$,
+$x_{2:N}=\sum_{k\ge0}(\widetilde T^\T)^ke_j\ge0$. Komponen ke-$i$ adalah rata-rata banyaknya kunjungan ke halte $i$
+sebelum penumpang yang berangkat dari halte $j$ tiba di halte~1, sehingga jumlah komponennya adalah $m_j$~\cite{norris}.
+\hfill$\square$
+
+\medskip
+Proposisi ini menyatakan bahwa buruknya kondisi $B$ sama dengan lamanya penumpang dari halte terjauh mencapai halte~1.
+Dua akibatnya menjelaskan Tabel~\ref{tab:kondisi}.
+
+Pertama, rantai pada koridor ini berdifusi. Peluang pindah di bagian dalam koridor adalah sekitar $0.09$ (mundur satu
+halte), $0.06$ (maju satu), dan $0.015$ (maju dua), sehingga variansi perpindahan per interval adalah
+$\sigma^2=0.09+0.06+4(0.015)\approx0.21$ dengan kecenderungan arah (\emph{drift}) hampir nol
+(Subbagian~\ref{subsec:mekanisme}). Untuk langkah acak seperti ini, waktu pencapaian dari ujung jauh koridor
+berorde $N^2/\sigma^2$~\cite{norris}, sehingga $\kappa_1(B)=O(N^2)$. Hal ini sesuai dengan Tabel~\ref{tab:kondisi}:
+$\kappa_1$ naik 3.9--4.0 kali setiap $N$ digandakan dari 16 sampai 128, dan $\kappa_1/N^2$ hampir konstan (6.2--6.6 pada data). Pada rantai
+sintetis dengan drift nol, $\kappa_1/N^2=5.11$--$5.12$, sama dengan $\lVert B\rVert_1/\sigma^2=1.075/0.21$, dengan $\lVert B\rVert_1=1.075$ dari kolom pertama
+($1+0.06+0.015$). Nilai pada data sedikit lebih besar. Penyebab yang mungkin adalah peluang mundur di dekat halte~1 pada
+data yang lebih kecil daripada $0.09$ (misalnya $T_{21}=0.0651$), sehingga penumpang lebih lama mencapai halte~1.
+
+Kedua, pada $N=256$ penumpang di halte 129--256 hanya dapat mencapai halte~1 dengan melintasi sambungan yang peluangnya
+sekitar $9\times10^{-8}$ per interval (Subbagian~\ref{subsec:hasilvalidasi}). Aliran rata-rata melintas dari blok kedua
+adalah $\pi_{129}T_{129,128}\approx3.8\times10^{-3}\cdot9.0\times10^{-8}\approx3.4\times10^{-10}$ per interval, sedangkan
+blok itu menampung kira-kira separuh massa $\pi$. Waktu keluar rata-rata dari blok kedua karena itu berorde $10^{9}$
+interval, sesuai dengan $\kappa_1(B)\approx1.7\times10^{9}$ karena $\lVert B\rVert_1$ berorde satu. Perhitungan ini
+hanya taksiran orde besar, tetapi menunjukkan bahwa lonjakan $\kappa_1$ pada $N=256$ berasal dari struktur data, bukan dari
+algoritma.
+
+\subsection{Hasil}\label{subsec:hasilkondisi}
+Seluruh nilai dihitung untuk kedua solver. Residual, $\eta$, $e_{\mathrm{norm}}$, dan $\delta$ identik pada keduanya
+sampai semua angka yang disimpan (\texttt{hasil/kondisi\_galat.csv}), sehingga tabel hanya memuat satu kolom untuk
+tiap besaran. Baris $N=1024$ dan $2048$ adalah rantai sintetis dari Bagian~\ref{sec:eksperimen}.
+
+\begin{table}[H]
+\centering
+\caption{Kondisi dan galat residual ($\kappa_1$ pada norma-1, $r$ pada norma-2, $\eta$ pada norma-1). Nilai sama untuk
+solver dense dan banded. Dua baris terakhir adalah rantai sintetis.}
+\label{tab:kondisi}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{rcccccc}
+\toprule
+$N$ & $\kappa_1(B)$ & $\kappa_1/N^2$ & $r$ & $r/\lVert\hat\pi\rVert_2$ & $\eta$ & $e_{\mathrm{norm}}$\\
+\midrule
+16 & $1.68\times10^{3}$ & $6.55$ & $1.55\times10^{-17}$ & $6.07\times10^{-17}$ & $1.31\times10^{-17}$ & $0$ \\
+32 & $6.52\times10^{3}$ & $6.36$ & $1.30\times10^{-17}$ & $7.21\times10^{-17}$ & $1.06\times10^{-17}$ & $0$ \\
+64 & $2.57\times10^{4}$ & $6.27$ & $9.66\times10^{-18}$ & $7.60\times10^{-17}$ & $1.09\times10^{-17}$ & $0$ \\
+128 & $1.02\times10^{5}$ & $6.23$ & $5.95\times10^{-18}$ & $6.62\times10^{-17}$ & $1.29\times10^{-17}$ & $0$ \\
+256 & $1.71\times10^{9}$ & $2.61\times10^{4}$ & $3.85\times10^{-18}$ & $6.07\times10^{-17}$ & $9.88\times10^{-18}$ & $0$ \\
+512 & $1.62\times10^{6}$ & $6.19$ & $3.21\times10^{-18}$ & $7.15\times10^{-17}$ & $1.11\times10^{-17}$ & $0$ \\
+\midrule
+1024 & $5.36\times10^{6}$ & $5.11$ & $4.19\times10^{-17}$ & $1.34\times10^{-15}$ & $1.02\times10^{-17}$ & $0$ \\
+2048 & $2.15\times10^{7}$ & $5.12$ & $4.17\times10^{-17}$ & $1.89\times10^{-15}$ & $1.12\times10^{-17}$ & $0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Galat maju terhadap solusi acuan eksak ($\delta$ pada norma-1) dan pembandingnya. Nilai $\delta$ sama untuk
+solver dense dan banded, dan $\max_i\lvert\hat\pi^{\mathrm{dense}}_i-\hat\pi^{\mathrm{band}}_i\rvert=0$ pada semua $N$.
+$\varepsilon=2^{-53}$.}
+\label{tab:galatmaju}
+\small
+\begin{tabular}{rcccc}
+\toprule
+$N$ & $\kappa_1\eta$ & $\kappa_1\varepsilon$ & $\delta$ & $\delta/(\kappa_1\varepsilon)$\\
+\midrule
+16 & $2.20\times10^{-14}$ & $1.86\times10^{-13}$ & $4.24\times10^{-16}$ & $2.28\times10^{-3}$ \\
+32 & $6.92\times10^{-14}$ & $7.24\times10^{-13}$ & $8.02\times10^{-16}$ & $1.11\times10^{-3}$ \\
+64 & $2.80\times10^{-13}$ & $2.85\times10^{-12}$ & $1.09\times10^{-14}$ & $3.81\times10^{-3}$ \\
+128 & $1.32\times10^{-12}$ & $1.13\times10^{-11}$ & $1.57\times10^{-14}$ & $1.39\times10^{-3}$ \\
+256 & $1.69\times10^{-8}$ & $1.90\times10^{-7}$ & $5.75\times10^{-11}$ & $3.03\times10^{-4}$ \\
+512 & $1.79\times10^{-11}$ & $1.80\times10^{-10}$ & $8.64\times10^{-14}$ & $4.79\times10^{-4}$ \\
+\midrule
+1024 & $5.49\times10^{-11}$ & $5.95\times10^{-10}$ & $4.65\times10^{-13}$ & $7.82\times10^{-4}$ \\
+2048 & $2.40\times10^{-10}$ & $2.38\times10^{-9}$ & $2.03\times10^{-13}$ & $8.50\times10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{kondisi_vs_N.png}
+\caption{Kiri: $\kappa_1(B)$ terhadap $N$ (skala log--log); garis putus-putus dan marker kosong adalah rantai sintetis.
+Kanan: galat maju eksak $\delta$ terhadap indikator $\kappa_1\varepsilon$; semua titik berada di bawah garis
+$\delta=\kappa_1\varepsilon$.}
+\label{fig:kondisi}
+\end{figure}
+
+\subsection{Analisis}\label{subsec:analisiskondisi}
+Tabel~\ref{tab:kondisi} dan~\ref{tab:galatmaju} menunjukkan empat pola.
+
+Pertama, residual tidak mengikuti $\kappa_1$. Residual $r$ berada pada orde $10^{-18}$--$10^{-17}$ dan $\eta$ pada orde
+$10^{-17}$ untuk semua $N$, padahal $\kappa_1(B)$ merentang dari $1.68\times10^{3}$ sampai $1.71\times10^{9}$. Pada
+data, $r/\lVert\hat\pi\rVert_2$ berada di $6.1$--$7.6\times10^{-17}$, kira-kira $0.5$--$0.7\,\varepsilon$, jadi residual
+sudah sekecil yang dapat dicapai presisi ganda. Hal ini sesuai dengan sifat algoritma: $B$ dominan diagonal per kolom,
+sehingga eliminasi Gauss tidak memerlukan pertukaran baris dan faktor pertumbuhan elemennya paling besar 2~\cite{higham},
+jadi stabil mundur. Pada rantai sintetis $r/\lVert\hat\pi\rVert_2$ sekitar $10^{-15}$, lebih besar tetapi tetap kecil;
+penyebabnya tidak kami telusuri.
+
+Kedua, galat maju mengikuti $\kappa_1$ sebagai batas atas. Nilai $\delta$ naik dari $4.24\times10^{-16}$ ($N=16$,
+$\kappa_1=1.68\times10^{3}$) menjadi $5.75\times10^{-11}$ ($N=256$, $\kappa_1=1.71\times10^{9}$). Pada seluruh baris
+$\delta<\kappa_1\eta$ dan $\delta/(\kappa_1\varepsilon)$ berada di antara $8.5\times10^{-5}$ dan $3.8\times10^{-3}$,
+sehingga~\eqref{eq:galatmaju} berlaku tetapi konservatif sekitar dua sampai empat orde besaran. Hubungannya batas atas,
+bukan prediksi: $\delta$ pada $N=2048$ ($2.03\times10^{-13}$) lebih kecil daripada pada $N=1024$ ($4.65\times10^{-13}$)
+walaupun $\kappa_1$-nya lebih besar. Residual yang kecil juga tidak menjamin galat maju yang kecil. Pada $N=256$,
+$r=3.85\times10^{-18}$ lebih kecil daripada pada $N=16$ ($1.55\times10^{-17}$), tetapi $\delta$ sekitar
+$1.4\times10^{5}$ kali lebih besar. Sebaliknya $e_{\mathrm{norm}}=0$ pada semua $N$ dan kedua solver. Ini bukan bukti
+akurasi: normalisasi~\eqref{eq:normal} memaksa $\mathbf1^\T\hat\pi=1$, jadi $e_{\mathrm{norm}}$ hanya memeriksa langkah
+normalisasi dan tidak menilai ketepatan komponen $\hat\pi_i$.
+
+Ketiga, $N=256$ adalah kasus kondisi buruk. Dari $N=128$ ke $256$, $\kappa_1$ naik $1.7\times10^{4}$ kali dan $\delta$ naik
+$3.7\times10^{3}$ kali. Selisih terhadap \texttt{np.linalg.solve} pada $N=256$ ($6.6\times10^{-13}$, Bagian~\ref{sec:metode})
+juga jauh lebih besar daripada ukuran lain ($\le2.6\times10^{-16}$). Selisih itu sama ordenya dengan galat per komponen,
+$\delta/N\approx2.2\times10^{-13}$. Dua eliminasi yang sama-sama benar tetapi berbeda urutan pembulatannya berselisih
+sebesar yang diizinkan kondisi masalah. Kondisi buruk tidak berarti hasilnya cacat: $\hat\pi$ tetap mulus di sambungan
+($\pi_{129}/\pi_{128}=0.9986$) dan masih benar sampai sekitar sepuluh digit. Artinya $\hat\pi$ sensitif terhadap gangguan
+pada $T$ dan pembulatan~\cite{chomeyer}. Berdasarkan Proposisi, $\kappa_1$ kira-kira berbanding terbalik dengan peluang
+sambungan; bila sambungan makin lemah dan $\kappa_1\varepsilon$ mendekati satu, tidak ada digit yang dijamin benar.
+
+Keempat, solver dense dan banded tidak dapat dibedakan. Selisih $\hat\pi$ keduanya nol pada semua $N$, dan $r$, $\eta$,
+$e_{\mathrm{norm}}$, serta $\delta$ juga sama persis. Penyebabnya tidak ada pertukaran baris pada data
+(Bagian~\ref{sec:metode}), sehingga kedua solver mengeksekusi pembagian dan pengurangan yang sama pada elemen tak-nol
+yang sama; solver dense hanya menambah operasi dengan nol, yang tidak mengubah hasil. Kesamaan persis ini berlaku pada
+mesin kami. Pada mesin atau pustaka lain, urutan penjumlahan pada substitusi dapat berbeda dan selisih berorde
+$\varepsilon$ mungkin muncul, jauh di bawah $\delta$. Kesimpulannya, galat solusi ditentukan oleh kondisi masalah dan
+algoritma eliminasi yang sama-sama dipakai kedua solver, bukan oleh cara penyimpanan matriks. Solver banded menghemat
+waktu dan memori tanpa mengorbankan akurasi.
+
+%======================================================================
+\section{Interpretasi Hasil}\label{sec:interpretasi}
+
+\subsection{Prosedur}
+Distribusi yang dianalisis adalah $\hat\pi$ dari solver banded, yang identik dengan hasil solver dense
+(Bagian~\ref{sec:kondisi}). Pada semua $N$, $\hat\pi_i>0$ untuk setiap $i$ dan $\mathbf1^\T\hat\pi=1$ (diperiksa dengan
+\texttt{assert} di notebook), sesuai teori untuk rantai irreducible~\cite{norris}. Karena jumlah halte berbeda-beda,
+proporsi dibandingkan dengan distribusi seragam $1/N$ lewat $N\hat\pi_i$; nilai 1 berarti halte menampung penumpang
+sebanyak rata-rata. Kode~\ref{alg:interpretasi} merangkum perhitungan yang dipakai: halte dengan proporsi terbesar,
+halte yang berada dalam 1\% dari maksimum, waktu kembali rata-rata $m_i=1/\pi_i$~\cite{norris}, drift per halte
+$\mu_i=\sum_j(j-i)T_{ij}$, pemeriksaan keseimbangan arus, dan ekstrapolasi Richardson. Ekstrapolasi dipakai karena
+nilai $N\hat\pi_{i^\ast}$ konvergen dengan galat $O(1/N)$ (Subbagian~\ref{subsec:hasilinterpretasi}), sehingga
+$v_\infty\approx2v(2N)-v(N)$ menghilangkan suku galat utamanya.
+
+\begin{algorithm}[H]
+\caption{Ringkasan dan diagnosis distribusi steady state}
+\label{alg:interpretasi}
+\begin{algorithmic}[1]
+\Require $T$ dan $\hat\pi$ untuk setiap $N\in\{16,32,\dots,512\}$
+\Ensure $i^\ast$, himpunan $\mathcal H$, $m_{i^\ast}$, drift $\mu$, galat keseimbangan, $v_\infty$
+\State $i^\ast\gets\arg\max_i\hat\pi_i$; \quad $i_\ast\gets\arg\min_i\hat\pi_i$
+\State $\mathcal H\gets\{\,i:\hat\pi_i\ge0.99\,\hat\pi_{i^\ast}\}$ \Comment{halte dalam 1\% dari maksimum}
+\State $m_{i^\ast}\gets1/\hat\pi_{i^\ast}$ \Comment{waktu kembali rata-rata ke halte terpadat}
+\State $\mu_i\gets\sum_j(j-i)T_{ij}$ untuk semua $i$
+\State $g\gets\max_i\bigl\lvert\hat\pi_i(1-T_{ii})-\sum_{j\ne i}\hat\pi_jT_{ji}\bigr\rvert$ \Comment{keseimbangan arus; harus mendekati 0}
+\State $v(N)\gets N\hat\pi_{i^\ast}$; \quad $v_\infty\gets2v(2N)-v(N)$ \Comment{ekstrapolasi Richardson}
+\State \Return $i^\ast$, $\mathcal H$, $m_{i^\ast}$, $\mu$, $g$, $v_\infty$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Hasil}\label{subsec:hasilinterpretasi}
+Gambar~\ref{fig:pi} memuat $\hat\pi_i$ terhadap nomor halte untuk keenam ukuran, dan Tabel~\ref{tab:interpretasi}
+merangkum nilai ekstremnya.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{pi_vs_halte.png}
+\caption{Distribusi steady state $\hat\pi_i$ terhadap nomor halte. Garis titik-titik horizontal adalah distribusi
+seragam $1/N$; titik biru dan garis putus-putus vertikal menandai halte dengan proporsi terbesar.}
+\label{fig:pi}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Nilai ekstrem $\hat\pi$. Halte terbesar $i^\ast$ adalah halte $N$ dan halte terkecil adalah halte~1 untuk
+semua $N$. Kolom ``dalam 1\%'' adalah halte dengan $\hat\pi_i\ge0.99\,\hat\pi_{i^\ast}$, dan $1/\pi_{i^\ast}$ adalah
+waktu kembali rata-rata ke halte terpadat (dalam interval).}
+\label{tab:interpretasi}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{rcccccrr}
+\toprule
+$N$ & $i^\ast$ & $\pi_{i^\ast}$ & $N\pi_{i^\ast}$ & $\pi_1$ & $N\pi_1$ & dalam 1\% & $1/\pi_{i^\ast}$\\
+\midrule
+16 & 16 & $0.095963$ & $1.5354$ & $0.039016$ & $0.6243$ & 16 & $10.42$ \\
+32 & 32 & $0.048136$ & $1.5403$ & $0.019570$ & $0.6263$ & 32 & $20.77$ \\
+64 & 64 & $0.024103$ & $1.5426$ & $0.009800$ & $0.6272$ & 64 & $41.49$ \\
+128 & 128 & $0.012060$ & $1.5437$ & $0.004903$ & $0.6276$ & 128 & $82.92$ \\
+256 & 256 & $0.006032$ & $1.5442$ & $0.002452$ & $0.6278$ & 255--256 & $165.78$ \\
+512 & 512 & $0.003017$ & $1.5445$ & $0.001226$ & $0.6279$ & 510--512 & $331.50$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Halte dengan proporsi terbesar adalah halte terakhir, yaitu halte $N$, pada keenam ukuran. Proporsinya turun dari
+$9.60\%$ ($N=16$) menjadi $0.302\%$ ($N=512$), tetapi $N\pi_N$ hampir konstan di sekitar $1.54$: halte terakhir memuat
+sekitar $1.54$ kali proporsi seragam. Halte terkecil adalah halte~1 dengan $N\pi_1\approx0.63$, atau sekitar 37\% di
+bawah rata-rata, sehingga $\pi_N/\pi_1\approx2.46$ untuk semua $N$. Himpunan halte dalam 1\% dari maksimum hanya satu
+halte untuk $N\le128$, dua untuk $N=256$, dan tiga untuk $N=512$, jadi hanya beberapa halte terakhir yang benar-benar
+terpadat. Sebagai gambaran (bukan data), bila $10\,000$ penumpang tersebar menurut $\pi$ pada $N=512$, halte 512 memuat
+sekitar 30 penumpang, halte 1 sekitar 12, dan halte rata-rata 19.5.
+
+Bentuk $\hat\pi$ tidak monoton (Gambar~\ref{fig:pi}). Proporsi naik dari halte~1 sampai maksimum lokal di sekitar
+$i/N\approx0.4$ ($N\pi_i\approx1.01$), turun ke minimum lokal di sekitar $i/N\approx0.6$ ($\approx0.96$), lalu naik tajam
+sampai halte terakhir. Nilai-nilai ini dibaca dari Gambar~\ref{fig:drift} (kanan), jadi hanya akurat sampai sekitar dua
+angka. Kurva $N\hat\pi_i$ terhadap $i/N$ untuk keenam ukuran hampir berimpit pada gambar itu, sehingga bentuk
+distribusi hanya bergantung pada posisi relatif $i/N$. Konvergensinya dapat dilihat pada Tabel~\ref{tab:interpretasi}:
+selisih $N\pi_{i^\ast}$ antar ukuran berturut-turut adalah $4.9\times10^{-3}$, $2.3\times10^{-3}$, $1.1\times10^{-3}$,
+$5.3\times10^{-4}$, dan $2.6\times10^{-4}$, dengan rasio berurutan $2.17$, $2.09$, $2.04$, dan $2.03$, jadi galatnya
+$O(1/N)$. Ekstrapolasi Richardson memberi $N\pi_{i^\ast}\to1.5448$ dan $N\pi_1\to0.6281$. Distribusi untuk koridor yang
+lebih panjang karena itu dapat ditaksir tanpa menyelesaikan sistemnya lagi: halte terakhir akan memuat sekitar $1.545/N$
+dan halte pertama sekitar $0.628/N$. Taksiran ini hanya berlaku bila pola peluang transisi dipertahankan seperti pada data.
+
+\subsection{Mengapa halte terakhir terpadat}\label{subsec:mekanisme}
+Gambar~\ref{fig:arus} (untuk $N=512$) memeriksa dua penjelasan yang sederhana. Persamaan $T^\T\pi=\pi$ pada halte $i$
+berarti arus keluar sama dengan arus masuk, $\pi_i(1-T_{ii})=\sum_{j\ne i}\pi_jT_{ji}$, dan selisih keduanya paling besar
+$1.6\times10^{-18}$ pada $\hat\pi$ yang dihitung. Penjelasan pertama adalah lama tinggal: halte dengan peluang keluar
+$1-T_{ii}$ kecil menahan penumpang lebih lama. Peluang keluar memang turun dari $\approx0.165$ di bagian dalam menjadi
+$\approx0.075$ di halte~1 dan halte~512, tetapi kedua halte itu sama-sama ``lengket'', sementara $\pi_1$ terkecil dan
+$\pi_{512}$ terbesar. Korelasi antara $\pi_i$ dan $1/(1-T_{ii})$ hanya $0.035$. Jadi proporsi penumpang tidak ditentukan
+oleh lama tinggal, melainkan oleh aliran neto sepanjang koridor.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.62\textwidth]{pi_dan_arus.png}
+\caption{Untuk $N=512$: $\hat\pi_i$ (atas), peluang meninggalkan halte $1-T_{ii}$ (tengah), dan arus masuk
+$\sum_{j\ne i}\hat\pi_jT_{ji}$ (bawah).}
+\label{fig:arus}
+\end{figure}
+
+Penjelasan kedua adalah drift $\mu_i=\sum_j(j-i)T_{ij}$ (Gambar~\ref{fig:drift}, kiri). Pada $N=512$, $\mu_i$ adalah
+$+0.09$ di halte~1 dan $-0.0746$ di halte~512, jadi kedua ujung memantulkan penumpang ke dalam. Di bagian dalam koridor
+drift praktis nol: $\mu_i\approx4\times10^{-4}$ pada halte 3--8 dan 505--510, dan $\lvert\mu_i\rvert\le2.8\times10^{-4}$
+pada halte 100--412. Penumpang di sana berdifusi dengan variansi per interval $\sigma^2\approx0.21$
+(Bagian~\ref{sec:kondisi}), dan bentuk $\pi$ ditentukan oleh drift kecil tersebut. Untuk difusi dengan drift $\mu$ dan
+variansi $\sigma^2$, kepadatan stasioner memenuhi $\mathrm d\ln\pi/\mathrm di\approx2\mu/\sigma^2$. Drift
+$4\times10^{-4}$ menggeser $\ln\pi$ sekitar $0.4\%$ per halte, yang menumpuk menjadi perubahan orde satu dalam beberapa
+ratus halte, sesuai dengan skala variasi $\pi$ pada Gambar~\ref{fig:arus} (rasio $\pi_{512}/\pi_1\approx2.46$). Agar bentuk
+$N\hat\pi_i$ tidak bergantung pada $N$, drift bagian dalam harus mengecil sebanding $1/N$. Hal ini konsisten dengan
+$N\mu\approx0.2$ pada $N=512$, tetapi kami tidak memeriksa $\mu_i$ untuk $N$ lain. Karena itu penjelasan ini kami
+nyatakan sebagai tafsiran yang konsisten dengan data, bukan sebagai bukti.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{drift_dan_profil.png}
+\caption{Kiri: drift $\mu_i=\sum_j(j-i)T_{ij}$ untuk $N=512$ (sumbu horizontal logaritmik). Kanan: $N\hat\pi_i$
+terhadap $i/N$ untuk keenam ukuran; kurva hampir berimpit.}
+\label{fig:drift}
+\end{figure}
+
+\subsection{Implikasi operasional}
+Bagi perusahaan, halte yang paling berisiko penuh adalah beberapa halte terakhir koridor: $N\pi_i\ge1.52$ pada halte-halte
+dalam 1\% dari maksimum, dan proporsinya terus naik menuju ujung. Halte terakhir memuat sekitar $1.54$ kali rata-rata
+dan halte pertama hanya sekitar $0.63$ kali, sehingga kapasitas halte, armada pengangkut ke arah ujung, dan petugas
+sebaiknya dialokasikan tidak merata. Waktu kembali rata-rata ke halte terpadat adalah $331.5$ interval pada $N=512$,
+dibandingkan sekitar $815$ interval ke halte~1 ($1/\pi_1$), jadi penumpang kembali ke halte terakhir sekitar $2.5$ kali
+lebih sering.
+
+%======================================================================
+\section{Rekomendasi}\label{sec:rekomendasi}
+Rekomendasi didasarkan pada empat kriteria: waktu, memori, kompleksitas, dan galat. Tabel~\ref{tab:rekomendasi}
+merangkum bukti dari Bagian~\ref{sec:eksperimen} dan~\ref{sec:kondisi}.
+
+\begin{table}[H]
+\centering
+\caption{Perbandingan solver dense dan banded ($p=2$, $q=1$). Waktu dan memori eksperimen diambil dari
+Tabel~\ref{tab:bench}; galat dari Tabel~\ref{tab:kondisi} dan~\ref{tab:galatmaju}.}
+\label{tab:rekomendasi}
+\small
+\begin{tabular}{@{}>{\raggedright}p{0.30\textwidth}>{\raggedright}p{0.21\textwidth}>{\raggedright}p{0.21\textwidth}>{\raggedright\arraybackslash}p{0.18\textwidth}@{}}
+\toprule
+Kriteria & Dense LU & Banded LU & Keunggulan\\
+\midrule
+Waktu faktorisasi (teori) & $\approx N^3/3$ flop, $O(N^3)$ & $\approx Np(p+q)=6N$ flop, $O(N)$ & banded\\
+Memori (teori) & $8N^2$ byte & $8(2p+q+1)N=48N$ byte & banded\\
+Waktu solver, $N=512$ (data) & 8.0 kali waktu banded & 18.8~ms & banded, 8.0 kali\\
+Waktu solver, $N=2048$ (sintetis) & 12.4~s & 76~ms & banded, sekitar 160 kali\\
+Memori \texttt{.nbytes}, $N=512$ & 4108~KiB & 60~KiB & banded, sekitar 68 kali\\
+Memori \texttt{.nbytes}, $N=2048$ & 65584~KiB & 240~KiB & banded, sekitar 270 kali\\
+Galat maju $\delta$, $N=256$ (terburuk) & $5.75\times10^{-11}$ & $5.75\times10^{-11}$ & sama\\
+Residual $r$, semua $N$ & $\le4.2\times10^{-17}$ & $\le4.2\times10^{-17}$ & sama\\
+Pengaruh $\kappa_1(B)$ pada galat & sama & sama & tidak membedakan\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Kami merekomendasikan solver banded (eliminasi pita dengan \emph{partial pivoting}, Kode~\ref{alg:band}) sebagai metode
+utama untuk koridor dengan jumlah halte besar. Alasannya ada tiga. Pertama, kompleksitasnya linear: waktu $O(Np(p+q))$
+dan memori $O((2p+q+1)N)$ untuk $p$ dan $q$ tetap, sedangkan solver dense $O(N^3)$ dan $O(N^2)$. Bedanya terasa di
+ukuran yang realistis: untuk $N=10^5$, matriks dense membutuhkan $8\times10^{10}$ byte (sekitar 80~GB) dan sekitar
+$3.3\times10^{14}$ flop untuk faktorisasi, sedangkan array pita hanya sekitar $4.8$~MB dan $6\times10^{5}$ flop
+(ekstrapolasi dari rumus, bukan eksperimen). Kedua, akurasinya sama: $\delta$, $r$, dan $\eta$ identik dengan solver dense
+pada semua $N$ (Bagian~\ref{sec:kondisi}), sehingga penghematan tidak dibayar dengan galat. Ketiga, solver ini umum:
+$p$ dan $q$ dideteksi otomatis, tidak harus tridiagonal, dan \emph{partial pivoting} tetap dipertahankan sehingga
+tetap aman bila $T$ lain tidak dominan diagonal; fill-in dibatasi pada $p+q$ diagonal di atas diagonal utama.
+
+Ada empat catatan agar rekomendasi ini dipakai dengan benar. Pertama, titik silang di sekitar $N=128$ pada
+Tabel~\ref{tab:bench} adalah artefak implementasi Python (perulangan kecil per langkah), bukan sifat algoritma. Jumlah
+operasi banded jauh lebih sedikit sejak $N=16$ (Tabel~\ref{tab:slope} dan \texttt{hasil/flop\_teori.csv}). Pada kode
+terkompilasi, misalnya rutin pita LAPACK~\cite{lapack}, solver banded diharapkan unggul pada $N$ kecil juga, tetapi hal ini
+tidak kami uji. Kedua, setelah solver menjadi linear, pembacaan dan persiapan data menjadi hambatan: pada $N=512$,
+membaca CSV dense (27.1~ms) sudah melebihi waktu solver banded (18.8~ms), dan deteksi $p,q$ dari matriks dense berbiaya
+$O(N^2)$. Seluruh alur menjadi $O(N)$ bila $T$ disimpan langsung sebagai empat diagonalnya (offset $-1,0,1,2$).
+
+Ketiga, kondisi harus dipantau. $\kappa_1(B)$ dapat ditaksir dalam $O(N)$ untuk matriks pita memakai estimator
+Hager--Higham dengan faktor yang sudah ada~\cite{higham}. Kasus $N=256$ menunjukkan bahwa rantai yang hampir terpecah
+membuat $\kappa_1\approx1.7\times10^{9}$ walaupun $\delta$ masih $5.75\times10^{-11}$. Bila $\kappa_1\varepsilon$ melebihi
+toleransi galat yang dibutuhkan, ada dua pilihan: perbaikan iteratif yang memakai ulang faktor $LU$ (setiap iterasi
+$O(N)$ pada solver banded, seperti pada Kode~\ref{alg:acuan} tetapi dengan residual presisi ganda), atau algoritma
+Grassmann--Taksar--Heyman (GTH), yang tidak memakai pengurangan dan dikenal akurat pada rantai hampir terpecah~\cite{gth}.
+Kedua pilihan itu tidak diuji pada laporan ini. Keempat, iterasi pangkat $\pi\leftarrow T^\T\pi$ tidak kami
+rekomendasikan: karena rantai berdifusi (Bagian~\ref{sec:kondisi}), waktu campurnya umumnya berorde $N^2$ interval,
+sehingga biaya totalnya sekitar $O(N^3)$ meskipun tiap iterasi hanya $O(N)$ (juga tidak diuji). Solver dense tetap
+berguna sebagai pembanding pada $N$ kecil dan untuk matriks tanpa struktur pita.
+
+Alur yang kami sarankan dirangkum pada Kode~\ref{alg:rekomendasi}.
+
+\begin{algorithm}[H]
+\caption{Alur yang disarankan untuk menghitung distribusi steady state}
+\label{alg:rekomendasi}
+\begin{algorithmic}[1]
+\Require $T$ (atau empat diagonalnya), toleransi galat relatif $\tau$
+\Ensure $\hat\pi$, ukuran galat $r$ dan $e_{\mathrm{norm}}$, penanda kondisi
+\State validasi $T$: dimensi, nonnegatif, jumlah baris, irreducible (Bagian~\ref{sec:data})
+\State deteksi $p,q$ dari $B$ (Bagian~\ref{sec:band})
+\If{$p+q+1\ll N$}
+  \State bentuk $AB\in\R^{(2p+q+1)\times N}$ dan selesaikan $Bz=b$ dengan Kode~\ref{alg:band}
+\Else
+  \State bentuk $B$ dense dan selesaikan dengan Kode~\ref{alg:dense}
+\EndIf
+\State $\hat\pi\gets z/\mathbf1^\T z$; hitung $r=\lVert T^\T\hat\pi-\hat\pi\rVert_2$ dan $e_{\mathrm{norm}}$
+\State taksir $\kappa_1(B)$ \Comment{eksak (Kode~\ref{alg:kappa}) bila $N$ kecil; estimator bila $N$ besar}
+\If{$\kappa_1(B)\,\varepsilon>\tau$}
+  \State lakukan perbaikan iteratif atau gunakan algoritma GTH, dan tandai hasil sebagai berkondisi buruk
+\EndIf
+\State \Return $\hat\pi$, $r$, $e_{\mathrm{norm}}$, $\kappa_1(B)$
+\end{algorithmic}
+\end{algorithm}
+
 
 \renewcommand{\refname}{Referensi}
 \emergencystretch=1em
 \begin{thebibliography}{9}
-\bibitem{norris} J. R. Norris, \emph{Markov Chains}. Cambridge University Press, 1997, Bab 1.7--1.8.
+\bibitem{norris} J. R. Norris, \emph{Markov Chains}. Cambridge University Press, 1997, Bab 1.3 dan 1.7--1.8.
 \bibitem{cormen} T. H. Cormen, C. E. Leiserson, R. L. Rivest, dan C. Stein, \emph{Introduction to Algorithms},
   edisi ke-3. MIT Press, 2009.
 \bibitem{heath} M. T. Heath, \emph{Scientific Computing: An Introductory Survey}, edisi ke-2. McGraw-Hill, 2002,
@@ -445,6 +874,12 @@ dalam waktu.
 \bibitem{golub} G. H. Golub dan C. F. Van Loan, \emph{Matrix Computations}, edisi ke-4. Johns Hopkins University
   Press, 2013, Bab 3 dan Subbab 4.3.
 \bibitem{lapack} E. Anderson dkk., \emph{LAPACK Users' Guide}, edisi ke-3. SIAM, 1999.
+\bibitem{higham} N. J. Higham, \emph{Accuracy and Stability of Numerical Algorithms}, edisi ke-2. SIAM, 2002,
+  Bab 7, 9, 12, dan 15.
+\bibitem{chomeyer} G. E. Cho dan C. D. Meyer, ``Comparison of perturbation bounds for the stationary distribution of a
+  Markov chain,'' \emph{Linear Algebra and its Applications}, vol. 335, hlm. 137--150, 2001.
+\bibitem{gth} W. K. Grassmann, M. I. Taksar, dan D. P. Heyman, ``Regenerative analysis and steady state distributions
+  for Markov chains,'' \emph{Operations Research}, vol. 33, no. 5, hlm. 1107--1116, 1985.
 \end{thebibliography}
 
 \appendix
