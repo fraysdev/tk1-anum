@@ -184,12 +184,14 @@ $\phi_{2,2}$ & -0.10980804 & -0.10980804\\
 \end{tabular}
 \end{table}
 
-Untuk $m\times n$ dengan $m\gg n$, pembentukan $A^\mathsf{T}A$ memerlukan sekitar $2mn^2$ FLOP, $A^\mathsf{T}b$ sekitar $2mn$, dan eliminasi $n\times n$ sekitar $2n^3/3$. Givens yang memperbarui hanya dua baris aktif memerlukan $O(mn^2)$ FLOP; pembentukan dan penerapan rotasi pada ruas kanan menambah $O(mn)$. Untuk $m=300,n=6$, ada paling banyak 1779 rotasi; sekitar 48 ribu FLOP diperlukan untuk pembaruan baris dan ruas kanan pada batas atas ini, di luar pembentukan parameter rotasi. Kedua metode berorde $O(mn^2)$ untuk matriks tinggi, dengan konstanta Givens lebih besar.
+Untuk $m\times n$ dengan $m\gg n$, pembentukan $A^\mathsf{T}A$ memerlukan sekitar $2mn^2$ FLOP, $A^\mathsf{T}b$ sekitar $2mn$, dan eliminasi $n\times n$ sekitar $2n^3/3$. Untuk data ini ($m=300,n=6$), total FLOP persamaan normal sekitar $2(300)(36)+2(300)(6)+\tfrac{2}{3}(216)\approx25\,344$. Givens memperbarui hanya dua baris aktif per rotasi; ada paling banyak 1779 rotasi sehingga batas atas FLOP sekitar 83 ribu. Kedua metode berorde $O(mn^2)$ untuk matriks tinggi, dengan konstanta Givens lebih besar sekitar $3{,}3\times$.
 
 Jika $A$ disimpan dense, keduanya memakai $O(mn)$ memori dasar. Persamaan normal menambah $O(n^2)$; $A$ berisi 1800 bilangan \texttt{float64} (14.4 kB) dan $A^\mathsf{T}A$ hanya 36 bilangan (288 byte). Implementasi notebook menyimpan $Q$ berukuran $300\times300$ dan membuat $G$ berukuran sama, masing-masing sekitar 720 kB; perkalian dense penuh untuk setiap rotasi juga mahal. Pembaruan langsung dua baris $[A\mid b]$, seperti pada skrip reproduksi laporan, menghindari penyimpanan $Q$ dan menghasilkan solusi yang sama. Keuntungan utama QR ialah stabilitas terhadap pembulatan, bukan jaminan residual yang lebih kecil pada setiap data. Residual dan koefisien yang sama pada kasus ini konsisten dengan kondisi matriks yang belum cukup ekstrem untuk memisahkan hasil kedua metode dalam presisi ganda.
 
 \section{Evaluasi luar sampel dan interpretasi}
-RMSE dihitung sebagai $\sqrt{\sum_{t=1}^{N}(R_t-\widehat R_t)^2/N}$. Hasil uji 0.01196708 lebih besar daripada hasil latih 0.00883213, sehingga kesalahan prediksi meningkat di luar sampel. Karena parameter kedua metode praktis identik, akurasi prediksi dan residualnya juga identik pada presisi yang dilaporkan; data ini tidak mendukung klaim bahwa salah satunya lebih akurat secara empiris. QR tetap lebih aman dari sisi stabilitas algoritmik bila kondisi masalah memburuk.
+RMSE dihitung sebagai $\sqrt{\sum_{t=1}^{N}(R_t-\widehat R_t)^2/N}$. Hasil uji 0.01196708 lebih besar daripada hasil latih 0.00883213, sehingga kesalahan prediksi meningkat di luar sampel.
+
+Karena parameter kedua metode praktis identik (selisih $\sim 10^{-16}$), akurasi prediksi dan residualnya juga identik pada presisi yang dilaporkan. Dari segi \textbf{akurasi empiris}, tidak ada perbedaan: kedua metode menghasilkan RMSE latih dan uji yang sama persis. Dari segi \textbf{stabilitas numerik}, QR Givens lebih unggul karena bekerja langsung pada $A$ dengan $\kappa_2(A)=192.61$, sedangkan persamaan normal bekerja pada $A^\mathsf{T}A$ yang bilangan kondisinya meningkat kuadratik menjadi $37\,096.84$. Pada data ini selisih tersebut belum memisahkan hasil karena presisi ganda masih memadai, tetapi QR akan lebih tahan terhadap pembulatan bila skala prediktor atau korelasi antarlag memburuk. \textbf{Kesimpulan}: kedua metode setara dalam akurasi; QR Givens lebih direkomendasikan untuk stabilitas numerik.
 
 Persamaan estimasi akhirnya adalah
 \begin{equation}
@@ -198,7 +200,16 @@ Persamaan estimasi akhirnya adalah
 -0.00121269-0.36037682R_{t-1}-0.10980804R_{t-2},&R_{t-1}<0.
 \end{cases}
 \end{equation}
-Kedua koefisien lag pada rezim bullish positif, yang sesuai dengan kecenderungan penerusan return sebelumnya pada model. Kedua koefisien lag pada rezim bearish negatif, yang sesuai dengan pembalikan arah bersyarat. Ini adalah interpretasi koefisien model, bukan bukti hubungan sebab-akibat ataupun jaminan kinerja investasi.
+Kedua koefisien lag pada rezim bullish positif, sedangkan kedua koefisien lag pada rezim bearish negatif. Secara rinci:
+\begin{itemize}
+\item $\alpha_1=0.00151>0$: \emph{drift} positif pada rezim bullish. Tanpa pengaruh lag, model memperkirakan kenaikan harian baseline sekitar 0.15\%.
+\item $\phi_{1,1}=0.172>0$: koefisien lag-1 bullish positif, menunjukkan \textbf{momentum persistence}---return positif kemarin cenderung dilanjutkan hari ini.
+\item $\phi_{1,2}=0.166>0$: koefisien lag-2 bullish juga positif, memperkuat tren jangka pendek dua hari. Pasar bullish memiliki memori positif.
+\item $\alpha_2=-0.00121<0$: \emph{drift} negatif pada rezim bearish. Tanpa pengaruh lag, ada tekanan turun baseline sekitar $-0.12\%$ per hari.
+\item $\phi_{2,1}=-0.360<0$: koefisien lag-1 bearish negatif dengan magnitudo paling besar, menunjukkan \textbf{mean-reversion} yang kuat---penurunan kemarin cenderung berbalik naik hari ini (\emph{technical rebound}).
+\item $\phi_{2,2}=-0.110<0$: koefisien lag-2 bearish juga negatif, menandakan efek pembalikan berlanjut hingga dua hari.
+\end{itemize}
+Interpretasi di atas berlaku dalam kerangka model, bukan bukti hubungan sebab-akibat ataupun jaminan kinerja investasi.
 
 \begin{figure}[H]
 \centering
@@ -213,7 +224,25 @@ Kedua koefisien lag pada rezim bullish positif, yang sesuai dengan kecenderungan
 \end{figure}
 
 \section{Pengaruh outlier dan kesimpulan}
-Fungsi objektif $\sum_t(R_t-\widehat R_t)^2$ memberi bobot kuadrat pada tiap galat. Karena itu kejutan harga ekstrem dapat menaikkan norma residual secara tajam dan menarik koefisien ke arah observasi tersebut. Pada data latih, return absolut terbesar sekitar 0.04357 dan galat prediksi absolut terbesar sekitar 0.04681 (29 Januari 2024). Galat maksimum pada data uji sekitar 0.07347. Plot residual menunjukkan mengapa RMSE uji dapat meningkat meski penyelesaian kuadrat terkecil pada data latih sudah optimal. Analisis sensitivitas yang lebih lengkap dapat membandingkan hasil dengan dan tanpa observasi ekstrem, menggunakan aturan yang ditentukan sebelum melihat data uji.
+Fungsi objektif $\sum_t(R_t-\widehat R_t)^2$ memberi bobot kuadrat pada tiap galat. Karena itu kejutan harga ekstrem dapat menaikkan norma residual secara tajam dan menarik koefisien ke arah observasi tersebut. Pada data latih, return absolut terbesar sekitar 0.04357 dan galat prediksi absolut terbesar sekitar 0.04681 (29 Januari 2024). Galat maksimum pada data uji sekitar 0.07347.
+
+Untuk menguji sensitivitas, kami mengestimasi ulang koefisien setelah menghapus satu dan tiga observasi dengan residual terbesar dari data latih, lalu mengevaluasi pada seluruh data latih dan uji yang sama.
+
+\begin{table}[H]
+\centering
+\caption{Sensitivitas terhadap outlier. Koefisien diestimasi ulang tanpa observasi berresidual terbesar.}
+\begin{tabular}{lrrr}
+\toprule
+Metrik & Data penuh & Hapus 1 outlier & Hapus 3 outlier\\
+\midrule
+RMSE latih & 0.00883213 & 0.00883439 & 0.00884748\\
+RMSE uji & 0.01196708 & 0.01200241 & 0.01203210\\
+$\norm{x_{\rm penuh}-x_{\rm baru}}$ & --- & $7.62\times10^{-3}$ & $3.03\times10^{-2}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Penghapusan satu outlier (29 Januari 2024) menggeser koefisien rezim bullish---terutama $\phi_{1,1}$ berubah sebesar $+0.0067$---sementara koefisien rezim bearish tidak berubah karena outlier tersebut berada di rezim bullish. RMSE latih dan uji sedikit meningkat karena koefisien baru tidak lagi mengakomodasi observasi ekstrem tersebut. Penghapusan tiga outlier memperbesar pergeseran koefisien empat kali lipat. Hasil ini menunjukkan bahwa satu observasi saja sudah mampu memengaruhi koefisien secara terukur, konsisten dengan sifat kuadrat terkecil yang sensitif terhadap titik berleverage tinggi.
 
 Kedua solver berhasil menyelesaikan model yang sama dan menghasilkan angka yang identik pada ketelitian pelaporan. Untuk implementasi yang efisien dan lebih tahan terhadap pembulatan, QR Givens sebaiknya diterapkan langsung pada dua baris matriks kerja dan ruas kanan, tanpa membentuk $Q$ atau $G$ dense penuh. Persamaan normal masih layak sebagai pembanding pada data ini, tetapi bilangan kondisinya yang kuadrat perlu diperhatikan jika skala atau korelasi prediktor meningkat.
 
